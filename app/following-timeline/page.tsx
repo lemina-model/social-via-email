@@ -1,8 +1,8 @@
-export default function Home() {
+export default function FollowingTimeline() {
   return (
     <>
       <header className="border-b border-foreground px-6 py-4 text-center">
-        <h1 className="text-lg font-semibold text-foreground">Pick an email vendor</h1>
+        <h1 className="text-lg font-semibold text-foreground">Following Timeline</h1>
       </header>
       <div className="px-6 py-6 text-right">
         <div className="min-h-[50vh] rounded border border-foreground p-4">
