@@ -1,26 +1,146 @@
 "use client";
 
+import Script from "next/script";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../components/AuthContext";
+import { APP_KEYWORD, GMAIL_TOKEN_STORAGE_KEY, LOADING_COMPLETE_COOKIE_NAME } from "../constants";
 
 export type LogFn = (message: string) => void;
 
-/** Placeholder list of operations. Each runs with a log function to print to the content panel. */
-const INIT_OPERATIONS: Array<(log: LogFn) => Promise<void>> = [];
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+const GMAIL_LABELS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/labels";
+
+type OperationFn = (log: LogFn, accessToken: string | null) => Promise<void>;
+
+/** Create a new directory (Gmail label) for the app if it does not exist. */
+async function createAppLabelOperation(
+  log: LogFn,
+  accessToken: string | null
+): Promise<void> {
+  const opName = `Create a new directory for ${APP_KEYWORD}`;
+  log(opName);
+
+  if (!accessToken) {
+    log("Skipped: no Gmail access token.");
+    return;
+  }
+
+  const authHeader = { Authorization: `Bearer ${accessToken}` };
+
+  const listRes = await fetch(GMAIL_LABELS_URL, { headers: authHeader });
+  if (!listRes.ok) {
+    log(`Failed to list labels: ${listRes.status}`);
+    return;
+  }
+
+  const listData = (await listRes.json()) as { labels?: Array<{ name: string }> };
+  const labels = listData.labels ?? [];
+  const exists = labels.some((l) => l.name === APP_KEYWORD);
+  if (exists) {
+    log(`Label "${APP_KEYWORD}" already exists.`);
+    return;
+  }
+
+  const createRes = await fetch(GMAIL_LABELS_URL, {
+    method: "POST",
+    headers: { ...authHeader, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: APP_KEYWORD }),
+  });
+  if (!createRes.ok) {
+    log(`Failed to create label: ${createRes.status}`);
+    return;
+  }
+  log(`Created label "${APP_KEYWORD}".`);
+}
+
+const INIT_OPERATIONS: OperationFn[] = [createAppLabelOperation];
 
 const DELAY_WHEN_NO_OPS_MS = 5000;
+const GAPI_WAIT_MS = 8000;
+const TOKEN_REQUEST_TIMEOUT_MS = 15000;
 
-async function runOperations(log: LogFn): Promise<void> {
+type GapiOAuth2 = {
+  initTokenClient: (config: {
+    client_id: string;
+    scope: string;
+    callback: (res: { access_token?: string; error?: string }) => void;
+  }) => { requestAccessToken: () => void };
+};
+
+function getGoogleOAuth2(): GapiOAuth2 | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as { google?: { accounts?: { oauth2?: GapiOAuth2 } } };
+  return w.google?.accounts?.oauth2 ?? null;
+}
+
+function waitForGapi(): Promise<void> {
+  return new Promise((resolve) => {
+    if (getGoogleOAuth2()) {
+      resolve();
+      return;
+    }
+    const deadline = Date.now() + GAPI_WAIT_MS;
+    const t = setInterval(() => {
+      if (getGoogleOAuth2() || Date.now() >= deadline) {
+        clearInterval(t);
+        resolve();
+      }
+    }, 150);
+  });
+}
+
+function requestGmailToken(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const done = (value: string | null) => {
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => done(null), TOKEN_REQUEST_TIMEOUT_MS);
+
+    const g = getGoogleOAuth2();
+    if (!g?.initTokenClient) {
+      done(null);
+      return;
+    }
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      done(null);
+      return;
+    }
+    const tokenClient = g.initTokenClient({
+      client_id: clientId,
+      scope: GMAIL_SCOPE,
+      callback: (res) => {
+        if (res.error) done(null);
+        else done(res.access_token ?? null);
+      },
+    });
+    tokenClient.requestAccessToken();
+  });
+}
+
+async function runOperations(
+  log: LogFn,
+  accessToken: string | null
+): Promise<void> {
   for (const op of INIT_OPERATIONS) {
-    await op(log);
+    await op(log, accessToken);
   }
+}
+
+function getStoredGmailToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const token = sessionStorage.getItem(GMAIL_TOKEN_STORAGE_KEY);
+  if (token) sessionStorage.removeItem(GMAIL_TOKEN_STORAGE_KEY);
+  return token;
 }
 
 export default function LoadingPage() {
   const router = useRouter();
   const person = useAuth();
   const [logs, setLogs] = useState<string[]>([]);
+  const [operationsComplete, setOperationsComplete] = useState(false);
 
   useEffect(() => {
     if (!person) {
@@ -35,7 +155,20 @@ export default function LoadingPage() {
       setLogs((prev) => [...prev, message]);
     };
 
-    runOperations(log)
+    log("Starting loading…");
+
+    const tokenPromise = (() => {
+      const stored = getStoredGmailToken();
+      if (stored) return Promise.resolve(stored);
+      return waitForGapi().then(() => requestGmailToken());
+    })();
+
+    tokenPromise
+      .then((token) => (cancelled ? null : token))
+      .then((token) => {
+        if (cancelled) return;
+        return runOperations(log, token ?? null);
+      })
       .then(() => {
         if (cancelled) return;
         if (INIT_OPERATIONS.length === 0) {
@@ -46,10 +179,13 @@ export default function LoadingPage() {
         }
       })
       .then(() => {
-        if (!cancelled) router.replace("/my-timeline");
+        if (!cancelled) setOperationsComplete(true);
       })
       .catch(() => {
-        if (!cancelled) log("Error during loading.");
+        if (!cancelled) {
+          log("Error during loading.");
+          setOperationsComplete(true);
+        }
       });
 
     return () => {
@@ -57,10 +193,19 @@ export default function LoadingPage() {
     };
   }, [person, router]);
 
+  const handleContinue = () => {
+    document.cookie = `${LOADING_COMPLETE_COOKIE_NAME}=1; path=/; max-age=86400; samesite=lax`;
+    window.location.replace("/following-timeline");
+  };
+
   if (!person) return null;
 
   return (
     <>
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="beforeInteractive"
+      />
       <header className="border-b border-foreground px-6 py-4 text-center">
         <h1 className="text-lg font-semibold text-foreground">Loading ...</h1>
       </header>
@@ -68,6 +213,17 @@ export default function LoadingPage() {
         <pre className="min-h-[10rem] font-mono text-sm text-foreground whitespace-pre-wrap break-words">
           {logs.length === 0 ? "" : logs.join("\n")}
         </pre>
+        {operationsComplete && (
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={handleContinue}
+              className="rounded border border-foreground bg-foreground px-4 py-2 text-background hover:opacity-90"
+            >
+              Continue
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

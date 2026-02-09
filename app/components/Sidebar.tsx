@@ -1,22 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { APP_KEYWORD, SESSION_COOKIE_NAME } from "../constants";
+import { APP_KEYWORD, LOADING_COMPLETE_COOKIE_NAME, SESSION_COOKIE_NAME } from "../constants";
 import type { Person } from "../types";
 
 const navItems = [
-  { label: "My Timeline", href: "/my-timeline" },
   { label: "Composite Timeline", href: "/following-timeline" },
   { label: "Timeline Lookup", href: "/timeline-lookup" },
+  { label: "My Timeline", href: "/my-timeline" },
   { label: "Following", href: "/following" },
   { label: "Followers", href: "/followers" },
 ] as const;
 
 type SidebarProps = {
   person: Person | null;
+  loadingComplete: boolean;
 };
 
-export function Sidebar({ person }: SidebarProps) {
+export function Sidebar({ person, loadingComplete }: SidebarProps) {
   return (
     <aside className="flex w-56 flex-shrink-0 flex-col border-r border-foreground px-4 py-6">
       <Link
@@ -38,6 +39,7 @@ export function Sidebar({ person }: SidebarProps) {
             type="button"
             onClick={() => {
               document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0`;
+              document.cookie = `${LOADING_COMPLETE_COOKIE_NAME}=; path=/; max-age=0`;
               window.location.href = "/";
             }}
             className="mt-2 text-right text-sm text-foreground underline hover:no-underline"
@@ -45,15 +47,27 @@ export function Sidebar({ person }: SidebarProps) {
             Sign out
           </button>
           <nav className="mt-8 flex flex-col gap-3 text-right">
-            {navItems.map(({ label, href }) => (
-              <Link
-                key={href}
-                href={href}
-                className="text-foreground hover:underline"
-              >
-                {label}
-              </Link>
-            ))}
+            {loadingComplete ? (
+              navItems.map(({ label, href }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="text-foreground hover:underline"
+                >
+                  {label}
+                </Link>
+              ))
+            ) : (
+              navItems.map(({ label, href }) => (
+                <span
+                  key={href}
+                  className="cursor-not-allowed text-foreground opacity-50"
+                  aria-disabled
+                >
+                  {label}
+                </span>
+              ))
+            )}
           </nav>
         </>
       ) : (

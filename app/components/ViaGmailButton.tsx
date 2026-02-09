@@ -3,10 +3,10 @@
 import Script from "next/script";
 import { useCallback } from "react";
 import { useAuth } from "./AuthContext";
-import { SESSION_COOKIE_NAME } from "../constants";
+import { GMAIL_TOKEN_STORAGE_KEY, SESSION_COOKIE_NAME } from "../constants";
 import type { Person } from "../types";
 
-const SCOPE = "openid email profile";
+const SCOPE = "openid email profile https://www.googleapis.com/auth/gmail.modify";
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
 const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 days
 
@@ -47,6 +47,7 @@ export function ViaGmailButton() {
           const name = (user.name ?? email).trim() || email;
           if (email) {
             setSessionCookie({ name, email });
+            sessionStorage.setItem(GMAIL_TOKEN_STORAGE_KEY, res.access_token);
             window.location.href = "/loading";
           }
         } catch {

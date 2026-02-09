@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import { AuthProvider } from "./components/AuthContext";
 import { Sidebar } from "./components/Sidebar";
-import { APP_KEYWORD, SESSION_COOKIE_NAME } from "./constants";
+import { APP_KEYWORD, LOADING_COMPLETE_COOKIE_NAME, SESSION_COOKIE_NAME } from "./constants";
 import type { Person } from "./types";
 
 const geistSans = Geist({
@@ -28,6 +28,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   let person: Person | null = null;
+  let loadingComplete = false;
   const cookieStore = await cookies();
   const session = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (session) {
@@ -40,6 +41,7 @@ export default async function RootLayout({
           name: (data.name ?? data.email).trim() || data.email,
           email: data.email,
         };
+        loadingComplete = !!cookieStore.get(LOADING_COMPLETE_COOKIE_NAME)?.value;
       }
     } catch {
       // ignore invalid session
@@ -53,7 +55,7 @@ export default async function RootLayout({
       >
         <AuthProvider person={person}>
           <div className="mx-auto flex min-h-screen max-w-[100ch]">
-            <Sidebar person={person} />
+            <Sidebar person={person} loadingComplete={loadingComplete} />
             <main className="min-h-screen flex-1 border-r border-foreground">
               {children}
             </main>
