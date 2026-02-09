@@ -3,7 +3,7 @@
 import Script from "next/script";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { APP_KEYWORD, REPO_OF_PEOPLE, REPO_OF_POSTS } from "../constants";
+import { APP_KEYWORD, REPO_OF_PEOPLE, REPO_OF_POSTS, TEST_SEED_PEOPLE_FILE, TEST_SEED_POSTS_FILE } from "../constants";
 import { useAppGlobal, type Person, type Post } from "../types";
 import { readEmail, writeEmail } from "../utils/EmailFile";
 
@@ -14,8 +14,46 @@ const GMAIL_LABELS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/labels"
 
 type OperationFn = (log: LogFn, accessToken: string) => Promise<void>;
 
-/** Create a new directory (Gmail label) for the app if it does not exist. */
-async function createAppLabelOperation(
+/** Seed the post repository from test-seed-posts.json if available. */
+async function seedPostRepositoryOperation(
+  log: LogFn,
+  accessToken: string
+): Promise<void> {
+  const res = await fetch(TEST_SEED_POSTS_FILE);
+  if (!res.ok) return;
+
+  const postList = (await res.json()) as Post[];
+  if (!Array.isArray(postList) || postList.length === 0) return;
+
+  log(`Seeding the email with the subject "${REPO_OF_POSTS}" with ${postList.length} posts from ${TEST_SEED_POSTS_FILE}`);
+  await writeEmail(REPO_OF_POSTS, JSON.stringify(postList), accessToken);
+  log(`Seeded the email with the subject "${REPO_OF_POSTS}"`);
+}
+
+/** Seed the people repository from test-seed-people.json if available. */
+async function seedPeopleRepositoryOperation(
+  log: LogFn,
+  accessToken: string
+): Promise<void> {
+  const res = await fetch(TEST_SEED_PEOPLE_FILE);
+  if (!res.ok) return;
+
+  const data = (await res.json()) as { following?: Person[]; followers?: Person[] };
+  const following = data.following ?? [];
+  const followers = data.followers ?? [];
+  if (following.length === 0 && followers.length === 0) return;
+
+  log(`Seeding the email with the subject "${REPO_OF_PEOPLE}" with test people from ${TEST_SEED_PEOPLE_FILE}`);
+  await writeEmail(
+    REPO_OF_PEOPLE,
+    JSON.stringify({ following, followers }),
+    accessToken
+  );
+  log(`Seeded the email with the subject "${REPO_OF_PEOPLE}"`);
+}
+
+/** Create a new email directory/label if it does not exist. */
+async function createEmailLabelOperation(
   log: LogFn,
   accessToken: string
 ): Promise<void> {
@@ -68,11 +106,16 @@ async function readPostRepositoryOperation(
     log("Processing the content of the email");
 
     const myEmail = useAppGlobal.getState().whoami?.email;
-    const postList = JSON.parse(content) as Post[];
+    const postList = JSON.parse(content) as Post[] ?? [];
+    const postMap: Record<string, Post> = Object.fromEntries(postList.map((p) => [p.uuid, p]));
 
-    useAppGlobal.getState().setAllPosts(postList ?? []);
-    useAppGlobal.getState().setMyTimeline(postList.filter((p) => p.authorEmail === myEmail && p.parentUuid === null) ?? []);
-    useAppGlobal.getState().setCompositeTimeline(postList.filter((p) => p.authorEmail !== myEmail && p.parentUuid === null) ?? []);
+    useAppGlobal.getState().setPostMap(postMap);
+    useAppGlobal.getState().setMyTimeline(
+      postList.filter((p) => p.authorEmail === myEmail && p.parentUuid === null) ?? []
+    );
+    useAppGlobal.getState().setCompositeTimeline(
+      postList.filter((p) => p.authorEmail !== myEmail && p.parentUuid === null) ?? []
+    );
 
     log(`Loaded ${postList.length} posts`);
   }
@@ -111,8 +154,10 @@ async function readPeopleRepositoryOperation(
 }
 
 const INIT_OPERATIONS: OperationFn[] = [
-  createAppLabelOperation,
+  createEmailLabelOperation,
+  seedPeopleRepositoryOperation,
   readPeopleRepositoryOperation,
+  seedPostRepositoryOperation,
   readPostRepositoryOperation,
 ];
 
