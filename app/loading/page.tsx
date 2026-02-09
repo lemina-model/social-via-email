@@ -3,28 +3,24 @@
 import Script from "next/script";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { APP_KEYWORD } from "../constants";
-import { useAppGlobal } from "../types";
+import { APP_KEYWORD, REPO_OF_PEOPLE, REPO_OF_POSTS } from "../constants";
+import { useAppGlobal, type Person, type Post } from "../types";
+import { readEmail } from "../utils/EmailFile";
 
 export type LogFn = (message: string) => void;
 
-const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify";
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify https://mail.google.com/";
 const GMAIL_LABELS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/labels";
 
-type OperationFn = (log: LogFn, accessToken: string | null) => Promise<void>;
+type OperationFn = (log: LogFn, accessToken: string) => Promise<void>;
 
 /** Create a new directory (Gmail label) for the app if it does not exist. */
 async function createAppLabelOperation(
   log: LogFn,
-  accessToken: string | null
+  accessToken: string
 ): Promise<void> {
-  const opName = `Create a new directory for ${APP_KEYWORD}`;
+  const opName = `Creating a new directory named "${APP_KEYWORD}"`;
   log(opName);
-
-  if (!accessToken) {
-    log("Skipped: no Gmail access token.");
-    return;
-  }
 
   const authHeader = { Authorization: `Bearer ${accessToken}` };
 
@@ -38,7 +34,7 @@ async function createAppLabelOperation(
   const labels = listData.labels ?? [];
   const exists = labels.some((l) => l.name === APP_KEYWORD);
   if (exists) {
-    log(`Label "${APP_KEYWORD}" already exists.`);
+    log(`Directory "${APP_KEYWORD}" already exists.`);
     return;
   }
 
@@ -54,9 +50,60 @@ async function createAppLabelOperation(
   log(`Created label "${APP_KEYWORD}".`);
 }
 
-const INIT_OPERATIONS: OperationFn[] = [createAppLabelOperation];
+/** Read the post-repository email and process its content. */
+async function readPostRepositoryOperation(
+  log: LogFn,
+  accessToken: string
+): Promise<void> {
+  log(`Reading the email with the subject "${REPO_OF_POSTS}"`);
 
-const DELAY_WHEN_NO_OPS_MS = 5000;
+  const content = await readEmail(REPO_OF_POSTS, accessToken);
+  if (content === null) {
+    log(`The email with the subject "${REPO_OF_POSTS}" was not found`);
+  } else {
+    log("Processing the content of the email");
+
+    const myEmail = useAppGlobal.getState().whoami?.email;
+    const postList = JSON.parse(content) as Post[];
+
+    useAppGlobal.getState().setAllPosts(postList ?? []);
+    useAppGlobal.getState().setMyTimeline(postList.filter((p) => p.authorEmail === myEmail && p.parentUuid === null) ?? []);
+    useAppGlobal.getState().setCompositeTimeline(postList.filter((p) => p.authorEmail !== myEmail && p.parentUuid === null) ?? []);
+
+    log(`Loaded ${postList.length} posts`);
+  }
+}
+
+/** Read the people-repository email and process its content. */
+async function readPeopleRepositoryOperation(
+  log: LogFn,
+  accessToken: string
+): Promise<void> {
+  log(`Reading the email with the subject "${REPO_OF_PEOPLE}"`);
+
+  const content = await readEmail(REPO_OF_PEOPLE, accessToken);
+  if (content === null) {
+    log(`The email with the subject "${REPO_OF_PEOPLE}" was not found`);
+  } else {
+    log("Processing the content of the email");
+
+    const peopleMap = JSON.parse(content) as { following?: Person[]; followers?: Person[] };
+    const following = peopleMap.following ?? [];
+    const followers = peopleMap.followers ?? [];
+
+    useAppGlobal.getState().setFollowing(following);
+    useAppGlobal.getState().setFollowers(followers);
+
+    log(`Loaded ${following.length} following and ${followers.length} followers`);
+  }
+}
+
+const INIT_OPERATIONS: OperationFn[] = [
+  createAppLabelOperation,
+  readPeopleRepositoryOperation,
+  readPostRepositoryOperation,
+];
+
 const GAPI_WAIT_MS = 8000;
 const TOKEN_REQUEST_TIMEOUT_MS = 15000;
 
@@ -122,9 +169,10 @@ function requestGmailToken(): Promise<string | null> {
 
 async function runOperations(
   log: LogFn,
-  accessToken: string | null
+  accessToken: string
 ): Promise<void> {
   for (const op of INIT_OPERATIONS) {
+    log("");
     await op(log, accessToken);
   }
 }
@@ -176,19 +224,11 @@ export default function LoadingPage() {
 
     tokenPromise
       .then((token) => {
-        return token;
-      })
-      .then((token) => {
-        return runOperations(log, token ?? null);
-      })
-      .then(() => {
-        if (cancelled) return;
-        if (INIT_OPERATIONS.length === 0) {
-          log("No operations; waiting " + DELAY_WHEN_NO_OPS_MS / 1000 + "s…");
-          return new Promise<void>((resolve) =>
-            setTimeout(resolve, DELAY_WHEN_NO_OPS_MS)
-          );
+        if (token === null) {
+          log("Not signed in: no Gmail access token. No operations performed.");
+          return;
         }
+        return runOperations(log, token);
       })
       .then(() => {
         setOperationsComplete(true);
@@ -224,7 +264,7 @@ export default function LoadingPage() {
           {logs.length === 0 ? "" : logs.join("\n")}
         </pre>
         {operationsComplete && (
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex justify-start">
             <button
               type="button"
               onClick={handleContinue}

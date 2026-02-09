@@ -41,6 +41,8 @@ export type AppGlobal = {
   following: Person[];
   /** The list of people who follow the current user. */
   followers: Person[];
+  /** All posts (e.g. from post-repository). */
+  allPosts: Post[];
 };
 
 type AppGlobalActions = {
@@ -52,6 +54,7 @@ type AppGlobalActions = {
   setMyTimeline: (myTimeline: Post[]) => void;
   setFollowing: (following: Person[]) => void;
   setFollowers: (followers: Person[]) => void;
+  setAllPosts: (allPosts: Post[]) => void;
   signOut: () => void;
 };
 
@@ -65,6 +68,7 @@ export const useAppGlobal = create<AppGlobal & AppGlobalActions>()((set) => ({
   myTimeline: [],
   following: [],
   followers: [],
+  allPosts: [],
   // Actions
   setWhoami: (whoami: Person | null) => set({ whoami }),
   setGmailToken: (gmailToken: string | null) => set({ gmailToken }),
@@ -74,6 +78,7 @@ export const useAppGlobal = create<AppGlobal & AppGlobalActions>()((set) => ({
   setMyTimeline: (myTimeline: Post[]) => set({ myTimeline }),
   setFollowing: (following: Person[]) => set({ following }),
   setFollowers: (followers: Person[]) => set({ followers }),
+  setAllPosts: (allPosts: Post[]) => set({ allPosts }),
   signOut: () => set({
     whoami: null,
     gmailToken: null,
@@ -83,5 +88,6 @@ export const useAppGlobal = create<AppGlobal & AppGlobalActions>()((set) => ({
     myTimeline: [],
     following: [],
     followers: [],
+    allPosts: [],
   }),
 }));
