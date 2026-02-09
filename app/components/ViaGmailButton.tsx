@@ -2,25 +2,17 @@
 
 import Script from "next/script";
 import { useCallback } from "react";
-import { useAuth } from "./AuthContext";
-import { GMAIL_TOKEN_STORAGE_KEY, SESSION_COOKIE_NAME } from "../constants";
-import type { Person } from "../types";
+import { useRouter } from "next/navigation";
+import { useAppGlobal } from "../types";
 
 const SCOPE = "openid email profile https://www.googleapis.com/auth/gmail.modify";
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
-const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 days
-
-function setSessionCookie(person: Person) {
-  const payload = JSON.stringify({ name: person.name, email: person.email });
-  const base64 = typeof btoa !== "undefined"
-    ? btoa(unescape(encodeURIComponent(payload)))
-    : Buffer.from(payload).toString("base64");
-  const value = base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  document.cookie = `${SESSION_COOKIE_NAME}=${value}; path=/; max-age=${SESSION_MAX_AGE_SEC}; samesite=lax`;
-}
 
 export function ViaGmailButton() {
-  const person = useAuth();
+  const router = useRouter();
+  const person = useAppGlobal((state) => state.whoami);
+  const setWhoami = useAppGlobal((state) => state.setWhoami);
+  const setGmailToken = useAppGlobal((state) => state.setGmailToken);
   const handleClick = useCallback(() => {
     const g = typeof window !== "undefined" ? (window as unknown as { google?: { accounts?: { oauth2?: { initTokenClient: (config: {
       client_id: string;
@@ -44,11 +36,12 @@ export function ViaGmailButton() {
           if (!r.ok) return;
           const user = (await r.json()) as { email?: string; name?: string };
           const email = user.email ?? "";
-          const name = (user.name ?? email).trim() || email;
+          const name = user.name?.trim() || email.split('@')[0];
           if (email) {
-            setSessionCookie({ name, email });
-            sessionStorage.setItem(GMAIL_TOKEN_STORAGE_KEY, res.access_token);
-            window.location.href = "/loading";
+            const userInfo = { name, email };
+            setWhoami(userInfo);
+            setGmailToken(res.access_token);
+            router.push("/loading");
           }
         } catch {
           // stay on page
@@ -56,7 +49,7 @@ export function ViaGmailButton() {
       },
     });
     tokenClient.requestAccessToken();
-  }, []);
+  }, [router, setWhoami, setGmailToken]);
 
   return (
     <>

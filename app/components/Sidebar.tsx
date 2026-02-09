@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { APP_KEYWORD, LOADING_COMPLETE_COOKIE_NAME, SESSION_COOKIE_NAME } from "../constants";
-import type { Person } from "../types";
+import { APP_KEYWORD } from "../constants";
+import { useAppGlobal } from "../types";
 
 const navItems = [
   { label: "Composite Timeline", href: "/following-timeline" },
@@ -12,12 +12,10 @@ const navItems = [
   { label: "Followers", href: "/followers" },
 ] as const;
 
-type SidebarProps = {
-  person: Person | null;
-  loadingComplete: boolean;
-};
-
-export function Sidebar({ person, loadingComplete }: SidebarProps) {
+export function Sidebar() {
+  const whoami = useAppGlobal((state) => state.whoami);
+  const loadingComplete = useAppGlobal((state) => state.loadingComplete);
+  const signOut = useAppGlobal((state) => state.signOut);
   return (
     <aside className="flex w-56 flex-shrink-0 flex-col border-r border-foreground px-4 py-6">
       <Link
@@ -27,19 +25,18 @@ export function Sidebar({ person, loadingComplete }: SidebarProps) {
         {APP_KEYWORD.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
       </Link>
 
-      {person ? (
+      {whoami ? (
         <>
-          <p className="mt-6 truncate text-right text-sm font-medium text-foreground" title={person.name}>
-            {person.name}
+          <p className="mt-6 truncate text-right text-sm font-medium text-foreground" title={whoami.name}>
+            {whoami.name}
           </p>
-          <p className="truncate text-right text-sm text-foreground/80" title={person.email}>
-            {person.email}
+          <p className="truncate text-right text-sm text-foreground/80" title={whoami.email}>
+            {whoami.email}
           </p>
           <button
             type="button"
             onClick={() => {
-              document.cookie = `${SESSION_COOKIE_NAME}=; path=/; max-age=0`;
-              document.cookie = `${LOADING_COMPLETE_COOKIE_NAME}=; path=/; max-age=0`;
+              signOut();
               window.location.href = "/";
             }}
             className="mt-2 text-right text-sm text-foreground underline hover:no-underline"

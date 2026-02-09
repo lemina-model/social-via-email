@@ -1,4 +1,21 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAppGlobal } from "../types";
+
 export default function MyTimeline() {
+  const router = useRouter();
+  const person = useAppGlobal((state) => state.whoami);
+
+  useEffect(() => {
+    if (!person) {
+      router.replace("/");
+    }
+  }, [person, router]);
+
+  if (!person) return null;
+
   return (
     <>
       <header className="border-b border-foreground px-6 py-4 text-center">

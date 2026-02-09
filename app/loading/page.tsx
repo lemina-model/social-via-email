@@ -3,8 +3,8 @@
 import Script from "next/script";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "../components/AuthContext";
-import { APP_KEYWORD, GMAIL_TOKEN_STORAGE_KEY, LOADING_COMPLETE_COOKIE_NAME } from "../constants";
+import { APP_KEYWORD } from "../constants";
+import { useAppGlobal } from "../types";
 
 export type LogFn = (message: string) => void;
 
@@ -129,16 +129,12 @@ async function runOperations(
   }
 }
 
-function getStoredGmailToken(): string | null {
-  if (typeof window === "undefined") return null;
-  const token = sessionStorage.getItem(GMAIL_TOKEN_STORAGE_KEY);
-  if (token) sessionStorage.removeItem(GMAIL_TOKEN_STORAGE_KEY);
-  return token;
-}
 
 export default function LoadingPage() {
   const router = useRouter();
-  const person = useAuth();
+  const person = useAppGlobal((state) => state.whoami);
+  const setGmailToken = useAppGlobal((state) => state.setGmailToken);
+  const setLoadingComplete = useAppGlobal((state) => state.setLoadingComplete);
   const [logs, setLogs] = useState<string[]>([]);
   const [operationsComplete, setOperationsComplete] = useState(false);
 
@@ -158,13 +154,25 @@ export default function LoadingPage() {
     log("Starting loading…");
 
     const tokenPromise = (() => {
-      const stored = getStoredGmailToken();
+      // Use token from Zustand store if available
+      const stored = useAppGlobal.getState().gmailToken;
       if (stored) return Promise.resolve(stored);
-      return waitForGapi().then(() => requestGmailToken());
+      // Otherwise request a new token and store it
+      return waitForGapi()
+        .then(() => requestGmailToken())
+        .then((token) => {
+          if (token) {
+            setGmailToken(token);
+          }
+          return token;
+        });
     })();
 
     tokenPromise
-      .then((token) => (cancelled ? null : token))
+      .then((token) => {
+        if (cancelled) return null;
+        return token;
+      })
       .then((token) => {
         if (cancelled) return;
         return runOperations(log, token ?? null);
@@ -191,11 +199,11 @@ export default function LoadingPage() {
     return () => {
       cancelled = true;
     };
-  }, [person, router]);
+  }, [person, router, setGmailToken]);
 
   const handleContinue = () => {
-    document.cookie = `${LOADING_COMPLETE_COOKIE_NAME}=1; path=/; max-age=86400; samesite=lax`;
-    window.location.replace("/following-timeline");
+    setLoadingComplete(true);
+    router.push("/following-timeline");
   };
 
   if (!person) return null;
