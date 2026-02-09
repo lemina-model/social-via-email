@@ -2,11 +2,21 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAppGlobal } from "../types";
+import { useAppGlobal, type Person } from "../types";
+
+function PersonCard({ p }: { p: Person }) {
+  return (
+    <div className="rounded border border-foreground bg-background p-4 text-left">
+      <div className="font-semibold text-foreground">{p.name}</div>
+      <div className="mt-1 text-sm text-foreground/80">{p.email}</div>
+    </div>
+  );
+}
 
 export default function Followers() {
   const router = useRouter();
   const person = useAppGlobal((state) => state.whoami);
+  const followers = useAppGlobal((state) => state.followers);
 
   useEffect(() => {
     if (!person) {
@@ -22,7 +32,13 @@ export default function Followers() {
         <h1 className="text-lg font-semibold text-foreground">Followers</h1>
       </header>
       <div className="px-6 py-6 text-left">
-        {/* Content panel - empty */}
+        <div className="flex flex-col gap-3">
+          {followers.length === 0 ? (
+            <p className="text-foreground/80">No followers yet.</p>
+          ) : (
+            followers.map((p) => <PersonCard key={p.email} p={p} />)
+          )}
+        </div>
       </div>
     </>
   );
