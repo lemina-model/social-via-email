@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { APP_KEYWORD, REPO_OF_PEOPLE, REPO_OF_POSTS } from "../constants";
 import { useAppGlobal, type Person, type Post } from "../types";
-import { readEmail } from "../utils/EmailFile";
+import { readEmail, writeEmail } from "../utils/EmailFile";
 
 export type LogFn = (message: string) => void;
 
@@ -60,6 +60,10 @@ async function readPostRepositoryOperation(
   const content = await readEmail(REPO_OF_POSTS, accessToken);
   if (content === null) {
     log(`The email with the subject "${REPO_OF_POSTS}" was not found`);
+
+    await writeEmail(REPO_OF_POSTS, "[]", accessToken);
+
+    log(`Created the email with the subject "${REPO_OF_POSTS}"`);
   } else {
     log("Processing the content of the email");
 
@@ -84,6 +88,14 @@ async function readPeopleRepositoryOperation(
   const content = await readEmail(REPO_OF_PEOPLE, accessToken);
   if (content === null) {
     log(`The email with the subject "${REPO_OF_PEOPLE}" was not found`);
+
+    await writeEmail(
+      REPO_OF_PEOPLE,
+      JSON.stringify({ following: [], followers: [] }),
+      accessToken
+    );
+
+    log(`Created the email with the subject "${REPO_OF_PEOPLE}"`);
   } else {
     log("Processing the content of the email");
 
