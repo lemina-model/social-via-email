@@ -1,13 +1,13 @@
+import { ViaGmailButton } from "./components/ViaGmailButton";
+
 export default function Home() {
   return (
     <>
       <header className="border-b border-foreground px-6 py-4 text-center">
-        <h1 className="text-lg font-semibold text-foreground">Pick an email vendor</h1>
+        <h1 className="text-lg font-semibold text-foreground">Sign in</h1>
       </header>
-      <div className="px-6 py-6 text-right">
-        <div className="min-h-[50vh] rounded border border-foreground p-4">
-          {/* Content panel - empty */}
-        </div>
+      <div className="px-6 pt-6 text-center">
+        <ViaGmailButton />
       </div>
     </>
   );

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import { cookies } from "next/headers";
 import "./globals.css";
+import { AuthProvider } from "./components/AuthContext";
+import { Sidebar } from "./components/Sidebar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,46 +20,38 @@ export const metadata: Metadata = {
   description: "Social via Email",
 };
 
-const navItems = [
-  { label: "My Timeline", href: "/my-timeline" },
-  { label: "Following Timeline", href: "/following-timeline" },
-  { label: "Timeline Lookup", href: "/timeline-lookup" },
-  { label: "Following", href: "/following" },
-  { label: "Followers", href: "/followers" },
-] as const;
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let userEmail: string | null = null;
+  const cookieStore = await cookies();
+  const session = cookieStore.get("sve_session")?.value;
+  if (session) {
+    try {
+      const data = JSON.parse(
+        Buffer.from(session, "base64url").toString("utf-8")
+      ) as { email?: string };
+      if (data.email) userEmail = data.email;
+    } catch {
+      // ignore invalid session
+    }
+  }
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="mx-auto flex min-h-screen max-w-[100ch]">
-          {/* Left sidebar */}
-          <aside className="flex w-56 flex-shrink-0 flex-col border-r border-foreground px-4 py-6">
-            <Link href="/" className="text-right text-lg font-semibold text-foreground hover:underline">
-              Social via Email
-            </Link>
-
-            <nav className="mt-16 flex flex-col gap-3 text-right">
-              {navItems.map(({ label, href }) => (
-                <span
-                  key={href}
-                  className="cursor-not-allowed text-foreground opacity-50"
-                  aria-disabled
-                >
-                  {label}
-                </span>
-              ))}
-            </nav>
-          </aside>
-          {/* Right content area */}
-          <main className="min-h-screen flex-1 border-r border-foreground">{children}</main>
-        </div>
+        <AuthProvider userEmail={userEmail}>
+          <div className="mx-auto flex min-h-screen max-w-[100ch]">
+            <Sidebar userEmail={userEmail} />
+            <main className="min-h-screen flex-1 border-r border-foreground">
+              {children}
+            </main>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );
