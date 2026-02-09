@@ -1,7 +1,7 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { APP_KEYWORD } from "../constants";
 import { useAppGlobal } from "../types";
@@ -137,6 +137,7 @@ export default function LoadingPage() {
   const setLoadingComplete = useAppGlobal((state) => state.setLoadingComplete);
   const [logs, setLogs] = useState<string[]>([]);
   const [operationsComplete, setOperationsComplete] = useState(false);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
     if (!person) {
@@ -144,10 +145,15 @@ export default function LoadingPage() {
       return;
     }
 
+    // Prevent double execution (e.g., from React Strict Mode)
+    if (hasStartedRef.current) {
+      return;
+    }
+    hasStartedRef.current = true;
+
     let cancelled = false;
 
     const log: LogFn = (message: string) => {
-      if (cancelled) return;
       setLogs((prev) => [...prev, message]);
     };
 
@@ -170,11 +176,9 @@ export default function LoadingPage() {
 
     tokenPromise
       .then((token) => {
-        if (cancelled) return null;
         return token;
       })
       .then((token) => {
-        if (cancelled) return;
         return runOperations(log, token ?? null);
       })
       .then(() => {
@@ -187,13 +191,11 @@ export default function LoadingPage() {
         }
       })
       .then(() => {
-        if (!cancelled) setOperationsComplete(true);
+        setOperationsComplete(true);
       })
       .catch(() => {
-        if (!cancelled) {
-          log("Error during loading.");
-          setOperationsComplete(true);
-        }
+        log("Error during loading.");
+        setOperationsComplete(true);
       });
 
     return () => {
