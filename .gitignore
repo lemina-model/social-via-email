@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test data
+/public/test-seed-posts.json
+/public/test-seed-people.json
