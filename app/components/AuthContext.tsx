@@ -1,18 +1,19 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import type { Person } from "../types";
 
-const AuthContext = createContext<string | null>(null);
+const AuthContext = createContext<Person | null>(null);
 
 export function AuthProvider({
-  userEmail,
+  person,
   children,
 }: {
-  userEmail: string | null;
+  person: Person | null;
   children: React.ReactNode;
 }) {
   return (
-    <AuthContext.Provider value={userEmail}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={person}>{children}</AuthContext.Provider>
   );
 }
 

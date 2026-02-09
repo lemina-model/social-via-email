@@ -3,14 +3,15 @@
 import Script from "next/script";
 import { useCallback } from "react";
 import { useAuth } from "./AuthContext";
+import { SESSION_COOKIE_NAME } from "../constants";
+import type { Person } from "../types";
 
 const SCOPE = "openid email profile";
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
-const SESSION_COOKIE_NAME = "sve_session";
 const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7 days
 
-function setSessionCookie(email: string) {
-  const payload = JSON.stringify({ email });
+function setSessionCookie(person: Person) {
+  const payload = JSON.stringify({ name: person.name, email: person.email });
   const base64 = typeof btoa !== "undefined"
     ? btoa(unescape(encodeURIComponent(payload)))
     : Buffer.from(payload).toString("base64");
@@ -19,7 +20,7 @@ function setSessionCookie(email: string) {
 }
 
 export function ViaGmailButton() {
-  const userEmail = useAuth();
+  const person = useAuth();
   const handleClick = useCallback(() => {
     const g = typeof window !== "undefined" ? (window as unknown as { google?: { accounts?: { oauth2?: { initTokenClient: (config: {
       client_id: string;
@@ -41,10 +42,12 @@ export function ViaGmailButton() {
             headers: { Authorization: `Bearer ${res.access_token}` },
           });
           if (!r.ok) return;
-          const user = (await r.json()) as { email?: string };
-          if (user.email) {
-            setSessionCookie(user.email);
-            window.location.href = "/my-timeline";
+          const user = (await r.json()) as { email?: string; name?: string };
+          const email = user.email ?? "";
+          const name = (user.name ?? email).trim() || email;
+          if (email) {
+            setSessionCookie({ name, email });
+            window.location.href = "/loading";
           }
         } catch {
           // stay on page
@@ -63,7 +66,7 @@ export function ViaGmailButton() {
       <button
         type="button"
         onClick={handleClick}
-        disabled={!!userEmail}
+        disabled={!!person}
         className="rounded border border-foreground bg-foreground px-4 py-2 text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         via Gmail
