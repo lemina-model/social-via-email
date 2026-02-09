@@ -41,5 +41,4 @@ yarn-error.log*
 next-env.d.ts
 
 # test data
-/public/test-seed-posts.json
-/public/test-seed-people.json
+/public/test-*.json
