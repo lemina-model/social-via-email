@@ -6,7 +6,6 @@ import { useAppGlobal } from "../lib/zustand/types";
 
 const navItems = [
   { label: "Composite Timeline", href: "/pages/compisite-timeline" },
-  { label: "Timeline Lookup", href: "/pages/timeline-lookup" },
   { label: "My Timeline", href: "/pages/my-timeline" },
   { label: "Following", href: "/pages/following" },
   { label: "Followers", href: "/pages/followers" },
