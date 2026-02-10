@@ -1,4 +1,4 @@
-import { ViaGmailButton } from "./components/ViaGmailButton";
+import { ViaGmailButton } from "./lib/gmail/ViaGmailButton";
 
 export default function Home() {
   return (

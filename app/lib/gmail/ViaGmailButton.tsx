@@ -3,7 +3,7 @@
 import Script from "next/script";
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAppGlobal } from "../types";
+import { useAppGlobal } from "../zustand/types";
 
 const SCOPE = "openid email profile https://www.googleapis.com/auth/gmail.modify https://mail.google.com/";
 const USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
@@ -41,7 +41,7 @@ export function ViaGmailButton() {
             const userInfo = { name, email };
             setWhoami(userInfo);
             setGmailToken(res.access_token);
-            router.push("/loading");
+            router.push("/pages/loading");
           }
         } catch {
           // stay on page

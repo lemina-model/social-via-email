@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { APP_KEYWORD } from "../constants";
-import { useAppGlobal } from "../types";
+import { APP_CODE_NAME } from "../constants";
+import { useAppGlobal } from "../lib/zustand/types";
 
 const navItems = [
-  { label: "Composite Timeline", href: "/following-timeline" },
-  { label: "Timeline Lookup", href: "/timeline-lookup" },
-  { label: "My Timeline", href: "/my-timeline" },
-  { label: "Following", href: "/following" },
-  { label: "Followers", href: "/followers" },
+  { label: "Composite Timeline", href: "/pages/compisite-timeline" },
+  { label: "Timeline Lookup", href: "/pages/timeline-lookup" },
+  { label: "My Timeline", href: "/pages/my-timeline" },
+  { label: "Following", href: "/pages/following" },
+  { label: "Followers", href: "/pages/followers" },
 ] as const;
 
 export function Sidebar() {
@@ -22,7 +22,7 @@ export function Sidebar() {
         href="/"
         className="text-right text-lg font-semibold text-foreground hover:underline"
       >
-        {APP_KEYWORD.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+        {APP_CODE_NAME.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
       </Link>
 
       {whoami ? (

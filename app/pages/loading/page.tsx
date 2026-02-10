@@ -3,9 +3,15 @@
 import Script from "next/script";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { APP_KEYWORD, REPO_OF_PEOPLE, REPO_OF_POSTS, TEST_SEED_PEOPLE_FILE, TEST_SEED_POSTS_FILE } from "../constants";
-import { useAppGlobal, type Person, type Post } from "../types";
-import { readEmail, writeEmail } from "../utils/EmailFile";
+import {
+  APP_CODE_NAME,
+  REPO_OF_PEOPLE,
+  REPO_OF_POSTS,
+  TEST_SEED_PEOPLE_FILE,
+  TEST_SEED_POSTS_FILE,
+} from "../../constants";
+import { useAppGlobal, type Person, type Post } from "../../lib/zustand/types";
+import { readEmail, writeEmail } from "../../lib/gmail/EmailFile";
 
 export type LogFn = (message: string) => void;
 
@@ -57,7 +63,7 @@ async function createEmailLabelOperation(
   log: LogFn,
   accessToken: string
 ): Promise<void> {
-  const opName = `Creating a new directory named "${APP_KEYWORD}"`;
+  const opName = `Creating a new directory named "${APP_CODE_NAME}"`;
   log(opName);
 
   const authHeader = { Authorization: `Bearer ${accessToken}` };
@@ -70,22 +76,22 @@ async function createEmailLabelOperation(
 
   const listData = (await listRes.json()) as { labels?: Array<{ name: string }> };
   const labels = listData.labels ?? [];
-  const exists = labels.some((l) => l.name === APP_KEYWORD);
+  const exists = labels.some((l) => l.name === APP_CODE_NAME);
   if (exists) {
-    log(`Directory "${APP_KEYWORD}" already exists.`);
+    log(`Directory "${APP_CODE_NAME}" already exists.`);
     return;
   }
 
   const createRes = await fetch(GMAIL_LABELS_URL, {
     method: "POST",
     headers: { ...authHeader, "Content-Type": "application/json" },
-    body: JSON.stringify({ name: APP_KEYWORD }),
+    body: JSON.stringify({ name: APP_CODE_NAME }),
   });
   if (!createRes.ok) {
     log(`Failed to create label: ${createRes.status}`);
     return;
   }
-  log(`Created label "${APP_KEYWORD}".`);
+  log(`Created label "${APP_CODE_NAME}".`);
 }
 
 /** Read the post-repository email and process its content. */
@@ -289,6 +295,7 @@ export default function LoadingPage() {
       })
       .then(() => {
         setOperationsComplete(true);
+        setLoadingComplete(true);
       })
       .catch(() => {
         log("Error during loading.");
@@ -298,12 +305,7 @@ export default function LoadingPage() {
     return () => {
       cancelled = true;
     };
-  }, [person, router, setGmailToken]);
-
-  const handleContinue = () => {
-    setLoadingComplete(true);
-    router.push("/following-timeline");
-  };
+  }, [person, router, setGmailToken, setLoadingComplete]);
 
   if (!person) return null;
 
@@ -321,15 +323,12 @@ export default function LoadingPage() {
           {logs.length === 0 ? "" : logs.join("\n")}
         </pre>
         {operationsComplete && (
-          <div className="mt-6 flex justify-start">
-            <button
-              type="button"
-              onClick={handleContinue}
-              className="rounded border border-foreground bg-foreground px-4 py-2 text-background hover:opacity-90"
-            >
-              Continue
-            </button>
-          </div>
+          <>
+            <p className="mt-6 text-foreground">&nbsp;</p>
+            <p className="mt-2 text-foreground">
+              Loading completed successfully. You can continue using any page in the left panel.
+            </p>
+          </>
         )}
       </div>
     </>

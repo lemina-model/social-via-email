@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "./components/Sidebar";
-import { APP_KEYWORD } from "./constants";
+import { APP_NAME } from "./constants";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Social via Email",
-  description: APP_KEYWORD,
+  title: APP_NAME,
+  description: APP_NAME,
 };
 
 export default async function RootLayout({

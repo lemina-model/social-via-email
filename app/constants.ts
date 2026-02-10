@@ -1,5 +1,6 @@
-/** Global keyword used for app identity, metadata, branding, etc. */
-export const APP_KEYWORD = "social-via-email";
+/** Global keywords used for app identity, metadata, branding, etc. */
+export const APP_NAME = "Social via Email";
+export const APP_CODE_NAME = "social-via-email";
 
 /** Subject of the email storing a list of posts */
 export const REPO_OF_POSTS = "repository-of-posts";

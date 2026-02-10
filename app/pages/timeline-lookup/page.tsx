@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAppGlobal } from "../types";
+import { useAppGlobal } from "../../lib/zustand/types";
 
 export default function TimelineLookup() {
   const router = useRouter();

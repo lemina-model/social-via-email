@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAppGlobal, type Person } from "../types";
+import { useAppGlobal, type Person } from "../../lib/zustand/types";
 
 function PersonCard({ p }: { p: Person }) {
   return (
