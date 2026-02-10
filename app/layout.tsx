@@ -29,7 +29,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="mx-auto flex min-h-screen max-w-[100ch]">
+        <div className="mx-auto flex min-h-screen w-full max-w-full pr-[4ch] md:max-w-[100ch]">
           <Sidebar />
           <main className="min-h-screen flex-1 border-r border-foreground">
             {children}
