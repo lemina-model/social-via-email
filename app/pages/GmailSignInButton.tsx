@@ -62,7 +62,7 @@ export function GmailSignInButton() {
         disabled={!!currentUser}
         className="rounded border border-foreground bg-foreground px-4 py-2 text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        via Gmail
+        Gmail
       </button>
     </>
   );

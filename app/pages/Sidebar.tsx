@@ -5,7 +5,7 @@ import { APP_NAME } from "../constants";
 import { useAppGlobal } from "../lib/zustand/models";
 
 const navItems = [
-  { label: "Composite Timeline", href: "/pages/compisite-timeline" },
+  { label: "Others Timeline", href: "/pages/others-timeline" },
   { label: "My Timeline", href: "/pages/my-timeline" },
   { label: "Following", href: "/pages/following" },
   { label: "Followers", href: "/pages/followers" },
