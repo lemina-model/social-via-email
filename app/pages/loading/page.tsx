@@ -3,71 +3,29 @@
 import Script from "next/script";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  APP_CODE_NAME,
-  REPO_OF_PEOPLE,
-  REPO_OF_POSTS,
-  TEST_SEED_PEOPLE_FILE,
-  TEST_SEED_POSTS_FILE,
-} from "../../constants";
-import { useAppGlobal, type Person, type Post } from "../../lib/zustand/types";
+import { EMAIL_FOLDER_FOR_INBOX, EMAIL_FOLDER_FOR_DATA, FILE_OF_SEED_DATA, EMAIL_SUBJECT_FOR_REPO } from "../../constants";
+import { parseAppGlobal, stringifyAppGlobal } from "../../lib/zustand/converter";
+import { useAppGlobal, type Author, type Post, type Thread } from "../../lib/zustand/models";
 import { readEmail, writeEmail } from "../../lib/gmail/EmailFile";
 
 export type LogFn = (message: string) => void;
 
-const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify https://mail.google.com/";
 const GMAIL_LABELS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/labels";
 
 type OperationFn = (log: LogFn, accessToken: string) => Promise<void>;
+const INIT_OPERATIONS: OperationFn[] = [
+  createEmailLabelsOperation,
+  readDataFromEmailOperation,
+];
 
-/** Seed the post repository from test-seed-posts.json if available. */
-async function seedPostRepositoryOperation(
+/** Create new email directories/labels if they do not exist. */
+async function createEmailLabelsOperation(
   log: LogFn,
   accessToken: string
 ): Promise<void> {
-  const res = await fetch(TEST_SEED_POSTS_FILE);
-  if (!res.ok) return;
-
-  const postList = (await res.json()) as Post[];
-  if (!Array.isArray(postList) || postList.length === 0) return;
-
-  log(`Seeding the email with the subject "${REPO_OF_POSTS}" with ${postList.length} posts from ${TEST_SEED_POSTS_FILE}`);
-  await writeEmail(REPO_OF_POSTS, JSON.stringify(postList), accessToken);
-  log(`Seeded the email with the subject "${REPO_OF_POSTS}"`);
-}
-
-/** Seed the people repository from test-seed-people.json if available. */
-async function seedPeopleRepositoryOperation(
-  log: LogFn,
-  accessToken: string
-): Promise<void> {
-  const res = await fetch(TEST_SEED_PEOPLE_FILE);
-  if (!res.ok) return;
-
-  const data = (await res.json()) as { following?: Person[]; followers?: Person[] };
-  const following = data.following ?? [];
-  const followers = data.followers ?? [];
-  if (following.length === 0 && followers.length === 0) return;
-
-  log(`Seeding the email with the subject "${REPO_OF_PEOPLE}" with test people from ${TEST_SEED_PEOPLE_FILE}`);
-  await writeEmail(
-    REPO_OF_PEOPLE,
-    JSON.stringify({ following, followers }),
-    accessToken
-  );
-  log(`Seeded the email with the subject "${REPO_OF_PEOPLE}"`);
-}
-
-/** Create a new email directory/label if it does not exist. */
-async function createEmailLabelOperation(
-  log: LogFn,
-  accessToken: string
-): Promise<void> {
-  const opName = `Creating a new directory named "${APP_CODE_NAME}"`;
-  log(opName);
-
   const authHeader = { Authorization: `Bearer ${accessToken}` };
 
+  /** List the existing labels once. */
   const listRes = await fetch(GMAIL_LABELS_URL, { headers: authHeader });
   if (!listRes.ok) {
     log(`Failed to list labels: ${listRes.status}`);
@@ -76,158 +34,71 @@ async function createEmailLabelOperation(
 
   const listData = (await listRes.json()) as { labels?: Array<{ name: string }> };
   const labels = listData.labels ?? [];
-  const exists = labels.some((l) => l.name === APP_CODE_NAME);
-  if (exists) {
-    log(`Directory "${APP_CODE_NAME}" already exists.`);
-    return;
-  }
 
-  const createRes = await fetch(GMAIL_LABELS_URL, {
-    method: "POST",
-    headers: { ...authHeader, "Content-Type": "application/json" },
-    body: JSON.stringify({ name: APP_CODE_NAME }),
-  });
-  if (!createRes.ok) {
-    log(`Failed to create label: ${createRes.status}`);
-    return;
-  }
-  log(`Created label "${APP_CODE_NAME}".`);
-}
+  for (const folderName of [EMAIL_FOLDER_FOR_INBOX, EMAIL_FOLDER_FOR_DATA]) {
+    log("");
+    log(`Creating a new directory named "${folderName}"`);
 
-/** Read the post-repository email and process its content. */
-async function readPostRepositoryOperation(
-  log: LogFn,
-  accessToken: string
-): Promise<void> {
-  log(`Reading the email with the subject "${REPO_OF_POSTS}"`);
-
-  const content = await readEmail(REPO_OF_POSTS, accessToken);
-  if (content === null) {
-    log(`The email with the subject "${REPO_OF_POSTS}" was not found`);
-
-    await writeEmail(REPO_OF_POSTS, "[]", accessToken);
-
-    log(`Created the email with the subject "${REPO_OF_POSTS}"`);
-  } else {
-    log("Processing the content of the email");
-
-    const myEmail = useAppGlobal.getState().whoami?.email;
-    const postList = JSON.parse(content) as Post[] ?? [];
-    const postMap: Record<string, Post> = Object.fromEntries(postList.map((p) => [p.uuid, p]));
-
-    useAppGlobal.getState().setPostMap(postMap);
-    useAppGlobal.getState().setMyTimeline(
-      postList.filter((p) => p.authorEmail === myEmail && p.parentUuid === null) ?? []
-    );
-    useAppGlobal.getState().setCompositeTimeline(
-      postList.filter((p) => p.authorEmail !== myEmail && p.parentUuid === null) ?? []
-    );
-
-    log(`Loaded ${postList.length} posts`);
-  }
-}
-
-/** Read the people-repository email and process its content. */
-async function readPeopleRepositoryOperation(
-  log: LogFn,
-  accessToken: string
-): Promise<void> {
-  log(`Reading the email with the subject "${REPO_OF_PEOPLE}"`);
-
-  const content = await readEmail(REPO_OF_PEOPLE, accessToken);
-  if (content === null) {
-    log(`The email with the subject "${REPO_OF_PEOPLE}" was not found`);
-
-    await writeEmail(
-      REPO_OF_PEOPLE,
-      JSON.stringify({ following: [], followers: [] }),
-      accessToken
-    );
-
-    log(`Created the email with the subject "${REPO_OF_PEOPLE}"`);
-  } else {
-    log("Processing the content of the email");
-
-    const peopleMap = JSON.parse(content) as { following?: Person[]; followers?: Person[] };
-    const following = peopleMap.following ?? [];
-    const followers = peopleMap.followers ?? [];
-
-    useAppGlobal.getState().setFollowing(following);
-    useAppGlobal.getState().setFollowers(followers);
-
-    log(`Loaded ${following.length} following and ${followers.length} followers`);
-  }
-}
-
-const INIT_OPERATIONS: OperationFn[] = [
-  createEmailLabelOperation,
-  seedPeopleRepositoryOperation,
-  readPeopleRepositoryOperation,
-  seedPostRepositoryOperation,
-  readPostRepositoryOperation,
-];
-
-const GAPI_WAIT_MS = 8000;
-const TOKEN_REQUEST_TIMEOUT_MS = 15000;
-
-type GapiOAuth2 = {
-  initTokenClient: (config: {
-    client_id: string;
-    scope: string;
-    callback: (res: { access_token?: string; error?: string }) => void;
-  }) => { requestAccessToken: () => void };
-};
-
-function getGoogleOAuth2(): GapiOAuth2 | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as { google?: { accounts?: { oauth2?: GapiOAuth2 } } };
-  return w.google?.accounts?.oauth2 ?? null;
-}
-
-function waitForGapi(): Promise<void> {
-  return new Promise((resolve) => {
-    if (getGoogleOAuth2()) {
-      resolve();
-      return;
+    const exists = labels.some((l) => l.name === folderName);
+    if (exists) {
+      log(`Directory "${folderName}" already exists.`);
+      continue;
     }
-    const deadline = Date.now() + GAPI_WAIT_MS;
-    const t = setInterval(() => {
-      if (getGoogleOAuth2() || Date.now() >= deadline) {
-        clearInterval(t);
-        resolve();
-      }
-    }, 150);
-  });
-}
 
-function requestGmailToken(): Promise<string | null> {
-  return new Promise((resolve) => {
-    const done = (value: string | null) => {
-      clearTimeout(timer);
-      resolve(value);
-    };
-    const timer = setTimeout(() => done(null), TOKEN_REQUEST_TIMEOUT_MS);
-
-    const g = getGoogleOAuth2();
-    if (!g?.initTokenClient) {
-      done(null);
-      return;
-    }
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      done(null);
-      return;
-    }
-    const tokenClient = g.initTokenClient({
-      client_id: clientId,
-      scope: GMAIL_SCOPE,
-      callback: (res) => {
-        if (res.error) done(null);
-        else done(res.access_token ?? null);
-      },
+    const createRes = await fetch(GMAIL_LABELS_URL, {
+      method: "POST",
+      headers: { ...authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: folderName }),
     });
-    tokenClient.requestAccessToken();
-  });
+    if (!createRes.ok) {
+      log(`Failed to create label: ${createRes.status}`);
+    } else {
+      log(`Created label "${folderName}".`);
+    }
+  }
+}
+
+/** Read data from email or seed file, then always write current store to email. */
+async function readDataFromEmailOperation(
+  log: LogFn,
+  accessToken: string
+): Promise<void> {
+  log("");
+  log(`Reading the email with the subject "${EMAIL_SUBJECT_FOR_REPO}"`);
+
+  const jsonFromEmail = await readEmail(EMAIL_SUBJECT_FOR_REPO, accessToken);
+  if (jsonFromEmail !== null) {
+    try {
+      parseAppGlobal(jsonFromEmail);
+      const state = useAppGlobal.getState();
+      const threads = state.myTimeline.length + state.othersTimeline.length;
+      const people = state.following.length + state.followers.length;
+      log(`Loaded app state with ${threads} threads and ${people} people.`);
+      return;
+    } catch {
+      log("Email content was not valid JSON; will try seed file.");
+    }
+  } else {
+    log(`The email "${EMAIL_SUBJECT_FOR_REPO}" was not found`);
+  }
+
+  log(`Reading from ${FILE_OF_SEED_DATA}`);
+  const fileRes = await fetch(FILE_OF_SEED_DATA);
+  if (fileRes.ok) {
+    try {
+      const jsonFromFile = await fileRes.text();
+      parseAppGlobal(jsonFromFile);
+      log(`Loaded app state from ${FILE_OF_SEED_DATA}`);
+    } catch {
+      log(`File ${FILE_OF_SEED_DATA} is not valid JSON; keeping current app state.`);
+    }
+  } else {
+    log(`File ${FILE_OF_SEED_DATA} not found.`);
+  }
+
+  const jsonToWrite = stringifyAppGlobal();
+  await writeEmail(EMAIL_SUBJECT_FOR_REPO, jsonToWrite, accessToken);
+  log(`Wrote app state to the email "${EMAIL_SUBJECT_FOR_REPO}".`);
 }
 
 async function runOperations(
@@ -235,23 +106,20 @@ async function runOperations(
   accessToken: string
 ): Promise<void> {
   for (const op of INIT_OPERATIONS) {
-    log("");
     await op(log, accessToken);
   }
 }
 
-
 export default function LoadingPage() {
   const router = useRouter();
-  const person = useAppGlobal((state) => state.whoami);
-  const setGmailToken = useAppGlobal((state) => state.setGmailToken);
-  const setLoadingComplete = useAppGlobal((state) => state.setLoadingComplete);
+  const currentUser = useAppGlobal((state) => state.session.signedInAuthor);
+  const setLoadingComplete = useAppGlobal((state) => state.session.setLoadingComplete);
   const [logs, setLogs] = useState<string[]>([]);
   const [operationsComplete, setOperationsComplete] = useState(false);
   const hasStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!person) {
+    if (!currentUser) {
       router.replace("/");
       return;
     }
@@ -270,29 +138,14 @@ export default function LoadingPage() {
 
     log("Starting loading…");
 
-    const tokenPromise = (() => {
-      // Use token from Zustand store if available
-      const stored = useAppGlobal.getState().gmailToken;
-      if (stored) return Promise.resolve(stored);
-      // Otherwise request a new token and store it
-      return waitForGapi()
-        .then(() => requestGmailToken())
-        .then((token) => {
-          if (token) {
-            setGmailToken(token);
-          }
-          return token;
-        });
-    })();
+    const token = useAppGlobal.getState().session.gmailToken;
+    if (!token) {
+      log("Not signed in: no Gmail access token. No operations performed.");
+      setOperationsComplete(true);
+      return;
+    }
 
-    tokenPromise
-      .then((token) => {
-        if (token === null) {
-          log("Not signed in: no Gmail access token. No operations performed.");
-          return;
-        }
-        return runOperations(log, token);
-      })
+    runOperations(log, token)
       .then(() => {
         setOperationsComplete(true);
         setLoadingComplete(true);
@@ -305,9 +158,9 @@ export default function LoadingPage() {
     return () => {
       cancelled = true;
     };
-  }, [person, router, setGmailToken, setLoadingComplete]);
+  }, [currentUser, router, setLoadingComplete]);
 
-  if (!person) return null;
+  if (!currentUser) return null;
 
   return (
     <>

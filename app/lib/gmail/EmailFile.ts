@@ -1,9 +1,9 @@
 /**
  * EmailFile – read and write an email as if it were a file.
- * Uses the APP_CODE_NAME Gmail label as the "folder"; the email subject is the "name".
+ * Uses the EMAIL_FOLDER_FOR_DATA Gmail label as the "folder"; the email subject is the "name".
  */
 
-import { APP_CODE_NAME } from "../../constants";
+import { EMAIL_FOLDER_FOR_DATA } from "../../constants";
 
 const GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 const GMAIL_LABELS_URL = `${GMAIL_BASE}/labels`;
@@ -48,13 +48,13 @@ function rfc2822Date(): string {
   return new Date().toUTCString().replace("GMT", "+0000");
 }
 
-/** Resolve the Gmail label ID for APP_CODE_NAME. */
+/** Resolve the Gmail label ID for EMAIL_FOLDER_FOR_DATA. */
 async function getAppLabelId(accessToken: string): Promise<string | null> {
   const res = await fetch(GMAIL_LABELS_URL, { headers: authHeader(accessToken) });
   if (!res.ok) return null;
   const data = (await res.json()) as { labels?: GmailLabel[] };
   const labels = data.labels ?? [];
-  const label = labels.find((l) => l.name === APP_CODE_NAME);
+  const label = labels.find((l) => l.name === EMAIL_FOLDER_FOR_DATA);
   return label?.id ?? null;
 }
 
@@ -74,7 +74,7 @@ function getBodyFromPayload(payload: GmailMessagePayload): string {
 }
 
 /**
- * Read an email from the APP_CODE_NAME folder whose subject equals `name`.
+ * Read an email from the EMAIL_FOLDER_FOR_DATA folder whose subject equals `name`.
  * Returns the email body as a string (e.g. JSON). Returns null if no such email exists.
  */
 export async function readEmail(
@@ -107,7 +107,7 @@ export async function readEmail(
 }
 
 /**
- * Write an email into the APP_CODE_NAME folder with subject `name` and body `content`.
+ * Write an email into the EMAIL_FOLDER_FOR_DATA folder with subject `name` and body `content`.
  * If an email with the same subject already exists in that folder, it is deleted first.
  */
 export async function writeEmail(
@@ -116,7 +116,7 @@ export async function writeEmail(
   accessToken: string
 ): Promise<void> {
   const labelId = await getAppLabelId(accessToken);
-  if (!labelId) throw new Error(`Label "${APP_CODE_NAME}" not found`);
+  if (!labelId) throw new Error(`Label "${EMAIL_FOLDER_FOR_DATA}" not found`);
 
   const subjectQuery = name.includes('"') ? `subject:${name.replace(/"/g, '\\"')}` : `subject:"${name}"`;
   const q = encodeURIComponent(subjectQuery);
@@ -158,8 +158,8 @@ export async function writeEmail(
   } while (pageToken);
 
   const lines = [
-    `From: storage@${APP_CODE_NAME}.local`,
-    `To: storage@${APP_CODE_NAME}.local`,
+    `From: storage@${EMAIL_FOLDER_FOR_DATA}.local`,
+    `To: storage@${EMAIL_FOLDER_FOR_DATA}.local`,
     `Subject: ${name.replace(/\r?\n/g, " ")}`,
     `Date: ${rfc2822Date()}`,
     "Content-Type: text/plain; charset=utf-8",

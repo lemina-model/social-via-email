@@ -1,4 +1,4 @@
-import { ViaGmailButton } from "./lib/gmail/ViaGmailButton";
+import { GmailSignInButton } from "./pages/GmailSignInButton";
 
 export default function Home() {
   return (
@@ -7,7 +7,7 @@ export default function Home() {
         <h1 className="text-lg font-semibold text-foreground">Sign in</h1>
       </header>
       <div className="px-6 pt-6 text-center">
-        <ViaGmailButton />
+        <GmailSignInButton />
       </div>
     </>
   );

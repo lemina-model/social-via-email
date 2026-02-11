@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAppGlobal, type Post } from "../../lib/zustand/types";
+import { useAppGlobal, type Post } from "../../lib/zustand/models";
 
 function PostCard({ post }: { post: Post }) {
   return (
@@ -15,16 +15,16 @@ function PostCard({ post }: { post: Post }) {
 
 export default function FollowingTimeline() {
   const router = useRouter();
-  const person = useAppGlobal((state) => state.whoami);
-  const compositeTimeline = useAppGlobal((state) => state.compositeTimeline);
+  const currentUser = useAppGlobal((state) => state.session.signedInAuthor);
+  const othersTimeline = useAppGlobal((state) => state.othersTimeline);
 
   useEffect(() => {
-    if (!person) {
+    if (!currentUser) {
       router.replace("/");
     }
-  }, [person, router]);
+  }, [currentUser, router]);
 
-  if (!person) return null;
+  if (!currentUser) return null;
 
   return (
     <>
@@ -33,10 +33,10 @@ export default function FollowingTimeline() {
       </header>
       <div className="px-6 py-6 text-left">
         <div className="flex flex-col gap-3">
-          {compositeTimeline.length === 0 ? (
+          {othersTimeline.length === 0 ? (
             <p className="text-foreground/80">No posts from people you follow.</p>
           ) : (
-            compositeTimeline.map((post) => <PostCard key={post.uuid} post={post} />)
+            othersTimeline.map((tree) => <PostCard key={tree.rootPost.uuid} post={tree.rootPost} />)
           )}
         </div>
       </div>

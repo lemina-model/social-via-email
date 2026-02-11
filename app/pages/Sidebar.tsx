@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { APP_CODE_NAME } from "../constants";
-import { useAppGlobal } from "../lib/zustand/types";
+import { APP_NAME } from "../constants";
+import { useAppGlobal } from "../lib/zustand/models";
 
 const navItems = [
   { label: "Composite Timeline", href: "/pages/compisite-timeline" },
@@ -12,8 +12,8 @@ const navItems = [
 ] as const;
 
 export function Sidebar() {
-  const whoami = useAppGlobal((state) => state.whoami);
-  const loadingComplete = useAppGlobal((state) => state.loadingComplete);
+  const signedInAuthor = useAppGlobal((state) => state.session.signedInAuthor);
+  const loadingComplete = useAppGlobal((state) => state.session.loadingComplete);
   const signOut = useAppGlobal((state) => state.signOut);
   return (
     <aside className="flex w-56 flex-shrink-0 flex-col border-r border-foreground px-4 py-6">
@@ -21,16 +21,16 @@ export function Sidebar() {
         href="/"
         className="text-right text-lg font-semibold text-foreground hover:underline"
       >
-        {APP_CODE_NAME.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+        {APP_NAME}
       </Link>
 
-      {whoami ? (
+      {signedInAuthor ? (
         <>
-          <p className="mt-6 truncate text-right text-sm font-medium text-foreground" title={whoami.name}>
-            {whoami.name}
+          <p className="mt-6 truncate text-right text-sm font-medium text-foreground" title={signedInAuthor.name}>
+            {signedInAuthor.name}
           </p>
-          <p className="truncate text-right text-sm text-foreground/80" title={whoami.email}>
-            {whoami.email}
+          <p className="truncate text-right text-sm text-foreground/80" title={signedInAuthor.email}>
+            {signedInAuthor.email}
           </p>
           <button
             type="button"

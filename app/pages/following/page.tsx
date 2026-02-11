@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAppGlobal, type Person } from "../../lib/zustand/types";
+import { useAppGlobal, type Author } from "../../lib/zustand/models";
 
-function PersonCard({ p }: { p: Person }) {
+function AuthorCard({ p }: { p: Author }) {
   return (
     <div className="rounded border border-foreground bg-background p-4 text-left">
       <div className="font-semibold text-foreground">{p.name}</div>
@@ -15,16 +15,16 @@ function PersonCard({ p }: { p: Person }) {
 
 export default function Following() {
   const router = useRouter();
-  const person = useAppGlobal((state) => state.whoami);
+  const currentUser = useAppGlobal((state) => state.session.signedInAuthor);
   const following = useAppGlobal((state) => state.following);
 
   useEffect(() => {
-    if (!person) {
+    if (!currentUser) {
       router.replace("/");
     }
-  }, [person, router]);
+  }, [currentUser, router]);
 
-  if (!person) return null;
+  if (!currentUser) return null;
 
   return (
     <>
@@ -36,7 +36,7 @@ export default function Following() {
           {following.length === 0 ? (
             <p className="text-foreground/80">No one followed yet.</p>
           ) : (
-            following.map((p) => <PersonCard key={p.email} p={p} />)
+            following.map((p) => <AuthorCard key={p.email} p={p} />)
           )}
         </div>
       </div>
