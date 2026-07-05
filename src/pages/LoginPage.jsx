@@ -82,9 +82,9 @@ function LoginPage() {
           Try at https://social-via-email.com/
         </a>
         <br />
-        <a href={`${import.meta.env.BASE_URL}privacy/`}>Privacy Policy</a>
+        <a href={`${import.meta.env.BASE_URL}privacy/index.html`}>Privacy Policy</a>
         {' · '}
-        <a href={`${import.meta.env.BASE_URL}tos/`}>Terms of Service</a>
+        <a href={`${import.meta.env.BASE_URL}tos/index.html`}>Terms of Service</a>
       </footer>
     </div>
   )
